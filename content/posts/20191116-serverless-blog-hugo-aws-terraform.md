@@ -14,13 +14,13 @@ aliases:
 - /blog/a-serverless-blog-with-hugo/
 ---
 
-# AWS + Hugo + Terraform
+## AWS + Hugo + Terraform
 
 On a whim I decided to add a blog to my static website, which consisted simply of links to my socials (linkedin/github/email).
 I thought this would be a good opportunity to dip my toes into serverless, which through various articles led me to **Hugo**. It also gives me a good excuse to practice my writing in **Markdown**.
 
 
-## Hugo
+### Hugo
 
 Following the **Hugo** quick start guide located [here](https://gohugo.io/getting-started/quick-start/), I followed these steps to get a basic site up and running.
 
@@ -145,7 +145,7 @@ Following the **Hugo** quick start guide located [here](https://gohugo.io/gettin
   ```
 11. We have now deployed to our S3 bucket. By default this means nothing, and we have nothing to point our DNS to yet.
 
-## Terraform
+### Terraform
 For the purpose of this blog, I'll just be starting off with static website hosting in S3 as outlined [here](https://docs.aws.amazon.com/AmazonS3/latest/dev/WebsiteHosting.html).
 I'll be managing it with Terraform as I intend on using CloudFront at a later point.
 
