@@ -19,6 +19,9 @@ aliases:
 On a whim I decided to add a blog to my static website, which consisted simply of links to my socials (linkedin/github/email).
 I thought this would be a good opportunity to dip my toes into serverless, which through various articles led me to **Hugo**. It also gives me a good excuse to practice my writing in **Markdown**.
 
+I'll be using Terraform for most of the AWS configuration, avoiding the console as much as possible. As mentioned the website will be created with Hugo, and there will be a small amount of `aws cli` to query AWS related bits.
+
+***
 
 ### Hugo
 
@@ -53,7 +56,7 @@ Following the **Hugo** quick start guide located [here](https://gohugo.io/gettin
   ```shell
   baseURL = "/"
   title   = "Josiah Halme"
-  theme = "hello-friend-ng"
+  theme   = "hello-friend-ng"
   ```
 
 6. Create a new post
@@ -139,17 +142,19 @@ Following the **Hugo** quick start guide located [here](https://gohugo.io/gettin
 
   ```shell
   ➜ hugo deploy
-  Deploying to target "mydeployment" (s3://halme.org?region=ap-southeast-2)
+  Deploying to target "mydeployment" (s3://mybucketname?region=ap-southeast-2)
   Identified 53 file(s) to upload, totaling 1.6 MB, and 0 file(s) to delete.
   Success!
   ```
 11. We have now deployed to our S3 bucket. By default this means nothing, and we have nothing to point our DNS to yet.
 
+***
+
 ### Terraform
 For the purpose of this blog, I'll just be starting off with static website hosting in S3 as outlined [here](https://docs.aws.amazon.com/AmazonS3/latest/dev/WebsiteHosting.html).
 I'll be managing it with Terraform as I intend on using CloudFront at a later point.
 
-1. Bootstrap a simple Terraform repo
+Bootstrap a simple Terraform repo
 ```shell
 terraform-web-halme
 ├── aws.tf
@@ -185,7 +190,7 @@ terraform-web-halme
               "Effect": "Allow",
               "Principal": "*",
               "Action": "s3:GetObject",
-              "Resource": "arn:aws:s3:::halme.org/*"
+              "Resource": "arn:aws:s3:::mybucketname/*"
           }
       ]
   }
@@ -204,17 +209,6 @@ terraform-web-halme
     website {
       index_document = "index.html"
       error_document = "error.html"
-
-      routing_rules = <<EOF
-  [{
-      "Condition": {
-          "KeyPrefixEquals": "docs/"
-      },
-      "Redirect": {
-          "ReplaceKeyPrefixWith": "documents/"
-      }
-  }]
-  EOF
     }
   }
   ```
@@ -249,11 +243,11 @@ terraform-web-halme
     required_version = ">= 0.12.0"
 
     backend "s3" {
-      bucket         = "web-halme-terraform"
+      bucket         = "web-example-terraform"
       key            = "terraform"
       region         = "ap-southeast-2"
       encrypt        = "true"
-      dynamodb_table = "web-halme-terraform-lock"
+      dynamodb_table = "web-example-terraform-lock"
     }
   }
   ```
@@ -281,5 +275,11 @@ terraform-web-halme
   }
   ```
 
-2. Run a terraform `plan` and `apply` to create the AWS infrastructure.
-3. More to come....
+Run a terraform `plan` and `apply` to create the AWS infrastructure.
+***
+### Conclusion  
+We can now navigate and view the static site by visiting the S3 bucket URL, for example
+```shell
+http://mybucketname.s3-website-ap-southeast-2.amazonaws.com/index.html
+```
+Next part will include CloudFront and ACM for SSL..
