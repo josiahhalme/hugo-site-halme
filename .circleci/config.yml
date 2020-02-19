@@ -14,6 +14,14 @@ jobs:
       # checkout the repository
       - checkout
 
+      # install markdown linter
+      - run: gem install mdl
+
+      - run:
+          name: test our markdown files
+          command: |
+            mdl -i --rules "~MD013" $HUGO_BUILD_DIR/content/posts/
+
       # install git submodules for managing third-party dependencies
       - run: git submodule sync && git submodule update --init
 
