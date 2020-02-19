@@ -14,13 +14,21 @@ aliases:
 - /blog/blog-adding-cloudfront-and-acm-ssl/
 ---
 
-## Using Terraform to add SSL to the blog
-To use SSL on my blog, I need to create an [Amazon CloudFront](https://aws.amazon.com/cloudfront/) web distribution along with adding a SSL certificate with [AWS Certificate Manager (ACM)](https://aws.amazon.com/certificate-manager/).
+# Overview
 
-***
+To use SSL on my blog, I need to create an
+[Amazon CloudFront](https://aws.amazon.com/cloudfront/) web distribution along
+with adding a SSL certificate with
+[AWS Certificate Manager (ACM)](https://aws.amazon.com/certificate-manager/).
 
-### ACM (AWS Certificate Manager)
-Create an Amazon ACM certificate and validate with the appropriate DNS records that are output. As CloudFront requires the certificate to be in us-east-1, we need to ensure the certificate is created in that region.
+---
+
+## ACM (AWS Certificate Manager)
+
+Create an Amazon ACM certificate and validate with the appropriate DNS records
+that are output. As CloudFront requires the certificate to be in us-east-1, we
+need to ensure the certificate is created in that region.
+
 ```hcl
 resource "aws_acm_certificate" "cert" {
   provider                  = aws.east
@@ -48,10 +56,11 @@ output "domain_validation_options" {
 ```
 
 Query the status through the console or CLI
+
 ```shell
-➜ aws acm describe-certificate 
---certificate-arn arn:aws:acm:ap-southeast-2:1234567890:certificate/abcd1234-1234-1234-1234-123456abcdef 
---query 'Certificate.DomainValidationOptions[*].{name:DomainName,status:ValidationStatus}' 
+➜ aws acm describe-certificate
+--certificate-arn arn:aws:acm:ap-southeast-2:1234567890:certificate/abcd1234-1234-1234-1234-123456abcdef
+--query 'Certificate.DomainValidationOptions[*].{name:DomainName,status:ValidationStatus}'
 --output table
 -----------------------------------------
 |          DescribeCertificate          |
@@ -63,10 +72,14 @@ Query the status through the console or CLI
 +----------------+----------------------+
 ```
 
-***
+---
 
-### S3
-We previously had our S3 bucket configured to host a static website directly, so we'll need to update our configuration to make it private, allowing CloudFront access only.
+## S3
+
+We previously had our S3 bucket configured to host a static website directly,
+so we'll need to update our configuration to make it private, allowing
+CloudFront access only.
+
 ```hcl
 resource "aws_s3_bucket" "web" {
   bucket = var.domain
@@ -100,10 +113,12 @@ resource "aws_s3_bucket_policy" "web" {
 }
 ```
 
-***
+---
 
-### CloudFront
+## CloudFront
+
 We need to create an [Origin Access Identity](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html)
+
 ```hcl
 resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
   comment = "${var.domain} cloudfront"
@@ -178,6 +193,7 @@ output "cloudfront_domain_name" {
 ```
 
 Run the terraform plan and it should output you a CloudFront domain (eventually)
+
 ```shell
 aws_cloudfront_distribution.s3_distribution: Still modifying... [id=ABCDEFGHIJKLM, 24m0s elapsed]
 aws_cloudfront_distribution.s3_distribution: Still modifying... [id=ABCDEFGHIJKLM, 24m10s elapsed]
@@ -192,13 +208,15 @@ Outputs:
 cloudfront_domain_name = example.cloudfront.net
 ```
 
-***
+---
 
-### Conclusion
-Browse to the cloudfront URL and you should have your static website. 
+## Conclusion
+
+Browse to the cloudfront URL and you should have your static website.
 It's then a matter of updating your DNS to point to URL.
 
-Next article will look at streamlining and documenting the pipeline for pushing updates/articles.
+Next article will look at streamlining and documenting the pipeline for pushing
+updates/articles.
 
 
 

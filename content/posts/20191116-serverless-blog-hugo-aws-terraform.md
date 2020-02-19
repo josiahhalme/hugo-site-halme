@@ -14,18 +14,24 @@ aliases:
 - /blog/a-serverless-blog-with-hugo/
 ---
 
-## AWS + Hugo + Terraform
+# Overview
 
-On a whim I decided to add a blog to my static website, which consisted simply of links to my socials (linkedin/github/email).
-I thought this would be a good opportunity to dip my toes into serverless, which through various articles led me to **Hugo**. It also gives me a good excuse to practice my writing in **Markdown**.
+On a whim I decided to add a blog to my static website, which consisted simply
+of links to my socials (linkedin/github/email). I thought this would be a good
+opportunity to dip my toes into serverless, which through various articles led
+me to **Hugo**. It also gives me a good excuse to practice my writing in
+**Markdown**.
 
-I'll be using Terraform for most of the AWS configuration, avoiding the console as much as possible. As mentioned the website will be created with Hugo, and there will be a small amount of `aws cli` to query AWS related bits.
+I'll be using Terraform for most of the AWS configuration, avoiding the console
+as much as possible. As mentioned the website will be created with Hugo, and
+there will be a small amount of `aws cli` to query AWS related bits.
 
-***
+---
 
-### Hugo
+## Hugo
 
-Following the **Hugo** quick start guide located [here](https://gohugo.io/getting-started/quick-start/), I followed these steps to get a basic site up and running.
+Following the **Hugo** quick start guide located [here](https://gohugo.io/getting-started/quick-start/),
+I followed these steps to get a basic site up and running.
 
 1. Install Hugo with homebrew
 
@@ -33,25 +39,25 @@ Following the **Hugo** quick start guide located [here](https://gohugo.io/gettin
   brew install hugo
   ```
 
-2. Create a new site with Hugo
+1. Create a new site with Hugo
 
   ```shell
   hugo new site halme
   ```
 
-3. Create a git repo for our site
+1. Create a git repo for our site
 
   ```shell
   git init
   ```
 
-4. Find a nice theme at [themes.gohugo.io](https://themes.gohugo.io/) and add it as a submodule
+1. Find a nice theme at [themes.gohugo.io](https://themes.gohugo.io/) and add it as a submodule
 
   ```shell
   git submodule add https://github.com/rhazdon/hugo-theme-hello-friend-ng.git themes/hello-friend-ng
   ```
 
-5. Update the Hugo `config.toml` file with the appropriate theme config
+1. Update the Hugo `config.toml` file with the appropriate theme config
 
   ```shell
   baseURL = "/"
@@ -59,13 +65,13 @@ Following the **Hugo** quick start guide located [here](https://gohugo.io/gettin
   theme   = "hello-friend-ng"
   ```
 
-6. Create a new post
+1. Create a new post
 
  ```shell
  hugo new posts/first-post.md
  ```
 
-7. Start a local Hugo server to test, browse to `http://localhost:1313/`
+1. Start a local Hugo server to test, browse to `http://localhost:1313/`
 
   ```shell
   ➜  hugo server -t hello-friend-ng
@@ -90,7 +96,7 @@ Following the **Hugo** quick start guide located [here](https://gohugo.io/gettin
   Press Ctrl+C to stop
   ```
 
-8. Create the static website by running `hugo` which will then deploy to the `public` directory
+1. Create the static website by running `hugo` which will then deploy to the `public` directory
 
   ```shell
   ➜ hugo
@@ -109,7 +115,8 @@ Following the **Hugo** quick start guide located [here](https://gohugo.io/gettin
   Total in 38 ms
   ```
 
-9. Add a Hugo deployment target in `config.toml` (S3 bucket in our case)
+1. Add a Hugo deployment target in `config.toml` (S3 bucket in our case)
+
   ```shell
   [deployment]
   order = [".jpg$", ".gif$"]
@@ -138,7 +145,7 @@ Following the **Hugo** quick start guide located [here](https://gohugo.io/gettin
   gzip = true
   ```
 
-10. Deploy to our S3 Bucket, in this case we've added our AWS IAM credentials (access_id and access_key) to `~/.aws/credentials`
+1. Deploy to our S3 Bucket, in this case we've added our AWS IAM credentials (access_id and access_key) to `~/.aws/credentials`
 
   ```shell
   ➜ hugo deploy
@@ -146,15 +153,18 @@ Following the **Hugo** quick start guide located [here](https://gohugo.io/gettin
   Identified 53 file(s) to upload, totaling 1.6 MB, and 0 file(s) to delete.
   Success!
   ```
-11. We have now deployed to our S3 bucket. By default this means nothing, and we have nothing to point our DNS to yet.
 
-***
+1. We have now deployed to our S3 bucket. By default this means nothing, and we have nothing to point our DNS to yet.
 
-### Terraform
+---
+
+## Terraform
+
 For the purpose of this blog, I'll just be starting off with static website hosting in S3 as outlined [here](https://docs.aws.amazon.com/AmazonS3/latest/dev/WebsiteHosting.html).
 I'll be managing it with Terraform as I intend on using CloudFront at a later point.
 
 Bootstrap a simple Terraform repo
+
 ```shell
 terraform-web-halme
 ├── aws.tf
@@ -179,9 +189,8 @@ terraform-web-halme
   ```
 
   policy.json
-  ```hcl
-  # Define S3 policy to allow static website hosting
 
+  ```hcl
   {
       "Version": "2012-10-17",
       "Statement": [
@@ -197,10 +206,8 @@ terraform-web-halme
   ```
 
   s3.tf
-  ```hcl
-  # S3 Bucket configuration for static hosting. Use ACL defined
-  # earlier, and add basic website settings.
 
+  ```hcl
   resource "aws_s3_bucket" "web" {
     bucket = var.domain
     acl    = "public-read"
@@ -214,8 +221,8 @@ terraform-web-halme
   ```
 
   state.tf
+
   ```hcl
-  # Create an S3 bucket for the terraform state
   resource "aws_s3_bucket" "terraform_state" {
     bucket        = "web-${var.name}-terraform"
     force_destroy = true
@@ -225,7 +232,6 @@ terraform-web-halme
     }
   }
 
-  # Create a dynamodb table for the terraform state lock
   resource "aws_dynamodb_table" "terraform_statelock" {
     name           = "web-${var.name}-terraform-lock"
     read_capacity  = 1
@@ -238,7 +244,6 @@ terraform-web-halme
     }
   }
 
-  # These settings must be hard coded, use S3 backend for state.
   terraform {
     required_version = ">= 0.12.0"
 
@@ -253,6 +258,7 @@ terraform-web-halme
   ```
 
   terraform.tfvars
+
   ```hcl
   account_id = "1234567890"
   domain     = "example.tld"
@@ -260,6 +266,7 @@ terraform-web-halme
   ```
 
   variables.tf
+
   ```hcl
   variable "account_id" {
   }
@@ -276,10 +283,15 @@ terraform-web-halme
   ```
 
 Run a terraform `plan` and `apply` to create the AWS infrastructure.
-***
-### Conclusion  
+
+---
+
+## Conclusion
+
 We can now navigate and view the static site by visiting the S3 bucket URL, for example
+
 ```shell
 http://mybucketname.s3-website-ap-southeast-2.amazonaws.com/index.html
 ```
+
 Next part will include CloudFront and ACM for SSL..

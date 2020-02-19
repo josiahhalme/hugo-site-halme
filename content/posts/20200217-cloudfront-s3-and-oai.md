@@ -14,15 +14,20 @@ aliases:
 - /blog/cloudfront-s3-and-oai/
 ---
 
-## CloudFront, S3 Static Site hosting and Origin Access Identity
-After looking into why certain URL's weren't working, I discovered static site hosting doesn't play nicely with CloudFront and Origin Access Identities.
+# Overview
 
-As a result I removed the OAI and made the bucket public. This simplifies it somewhat, and the content is all publically available regardless.
+After looking into why certain URL's weren't working, I discovered static site
+hosting doesn't play nicely with CloudFront and Origin Access Identities.
 
-***
+As a result I removed the OAI and made the bucket public. This simplifies it
+somewhat, and the content is all publically available regardless.
 
-### S3
+---
+
+## S3
+
 The update S3 resources,
+
 ```hcl
 resource "aws_s3_bucket" "web" {
   bucket = var.domain
@@ -48,11 +53,12 @@ data "aws_iam_policy_document" "s3_policy" {
 }
 ```
 
+---
 
-***
+## CloudFront
 
-### CloudFront
-We update the CloudFront distribution to get rid of the Origin Access Identity code.
+We update the CloudFront distribution to get rid of the Origin Access Identity
+code.
 
 ```hcl
 resource "aws_cloudfront_distribution" "s3_distribution" {
@@ -124,11 +130,14 @@ output "cloudfront_domain_name" {
 }
 ```
 
-***
+---
 
-### Conclusion
-On initial investigation, it looks like you can do pretty rewrites with Lambda, however this seemed like overkill.
-At a glance currently, perhaps using the S3 API endpoint for CloudFront may be the way to keep S3 buckets private and use Origin Access Identities.
+## Conclusion
+
+On initial investigation, it looks like you can do pretty rewrites with Lambda,
+however this seemed like overkill. At a glance currently, perhaps using the S3
+API endpoint for CloudFront may be the way to keep S3 buckets private and use
+Origin Access Identities.
 
 
 
