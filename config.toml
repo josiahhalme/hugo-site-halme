@@ -1,4 +1,4 @@
-baseURL = "/"
+baseURL = "halme.org"
 title   = "Josiah Halme"
 
 DefaultContentLanguage = "en"
