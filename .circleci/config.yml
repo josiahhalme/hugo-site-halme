@@ -15,7 +15,7 @@ jobs:
       - checkout
 
       # install markdown linter
-      - run: gem install mdl
+      - run: sudo gem install mdl
 
       - run:
           name: test our markdown files
