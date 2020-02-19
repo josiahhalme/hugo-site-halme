@@ -45,7 +45,8 @@ data "aws_iam_policy_document" "s3_policy" {
       identifiers = ["*"]
     }
   }
-}```
+}
+```
 
 
 ***
@@ -120,7 +121,8 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
 
 output "cloudfront_domain_name" {
   value = aws_cloudfront_distribution.s3_distribution.domain_name
-}```
+}
+```
 
 ***
 
