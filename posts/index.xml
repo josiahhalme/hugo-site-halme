@@ -1,0 +1,500 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Posts on Josiah Halme</title><link>https://halme.org/posts/</link><description>Recent content in Posts on Josiah Halme</description><generator>Hugo -- gohugo.io</generator><copyright>&lt;a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0&lt;/a></copyright><lastBuildDate>Mon, 17 Feb 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://halme.org/posts/index.xml" rel="self" type="application/rss+xml"/><item><title>CloudFront, S3 and OAI</title><link>https://halme.org/posts/2020/02/cloudfront-s3-and-oai/</link><pubDate>Mon, 17 Feb 2020 00:00:00 +0000</pubDate><guid>https://halme.org/posts/2020/02/cloudfront-s3-and-oai/</guid><description>Overview After looking into why certain URL&amp;rsquo;s weren&amp;rsquo;t working, I discovered static site hosting doesn&amp;rsquo;t play nicely with CloudFront and Origin Access Identities.
+As a result I removed the OAI and made the bucket public. This simplifies it somewhat, and the content is all publically available regardless.
+S3 The update S3 resources,
+resource &amp;#34;aws_s3_bucket&amp;#34; &amp;#34;web&amp;#34; { bucket = var.domain acl = &amp;#34;public-read&amp;#34; website { index_document = &amp;#34;index.html&amp;#34; error_document = &amp;#34;error.</description><content type="html"><![CDATA[<h1 id="overview">Overview</h1>
+<p>After looking into why certain URL&rsquo;s weren&rsquo;t working, I discovered static site
+hosting doesn&rsquo;t play nicely with CloudFront and Origin Access Identities.</p>
+<p>As a result I removed the OAI and made the bucket public. This simplifies it
+somewhat, and the content is all publically available regardless.</p>
+<hr>
+<h2 id="s3">S3</h2>
+<p>The update S3 resources,</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl"><span style="color:#66d9ef">resource</span> <span style="color:#e6db74">&#34;aws_s3_bucket&#34; &#34;web&#34;</span> {
+  bucket <span style="color:#f92672">=</span> <span style="color:#66d9ef">var</span>.<span style="color:#66d9ef">domain</span>
+  acl    <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;public-read&#34;</span>
+
+  <span style="color:#66d9ef">website</span> {
+    index_document <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;index.html&#34;</span>
+    error_document <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;error.html&#34;</span>
+  }
+
+}
+
+<span style="color:#66d9ef">data</span> <span style="color:#e6db74">&#34;aws_iam_policy_document&#34; &#34;s3_policy&#34;</span> {
+  <span style="color:#66d9ef">statement</span> {
+    sid       <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;PublicReadGetObject&#34;</span>
+    actions   <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;s3:GetObject&#34;</span>]
+    resources <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;${aws_s3_bucket.web.arn}/*&#34;</span>]
+    <span style="color:#66d9ef">principals</span> {
+      type        <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;*&#34;</span>
+      identifiers <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;*&#34;</span>]
+    }
+  }
+}
+</code></pre></div><hr>
+<h2 id="cloudfront">CloudFront</h2>
+<p>We update the CloudFront distribution to get rid of the Origin Access Identity
+code.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl"><span style="color:#66d9ef">resource</span> <span style="color:#e6db74">&#34;aws_cloudfront_distribution&#34; &#34;s3_distribution&#34;</span> {
+  <span style="color:#66d9ef">origin</span> {
+    domain_name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;${var.domain}.s3-website-${var.region}.amazonaws.com&#34;</span>
+    origin_id   <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;S3Origin-${var.domain}&#34;</span>
+    <span style="color:#66d9ef">custom_origin_config</span> {
+      http_port                <span style="color:#f92672">=</span> <span style="color:#ae81ff">80</span>
+      https_port               <span style="color:#f92672">=</span> <span style="color:#ae81ff">443</span>
+      origin_keepalive_timeout <span style="color:#f92672">=</span> <span style="color:#ae81ff">5</span>
+      origin_protocol_policy   <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;http-only&#34;</span>
+      origin_read_timeout      <span style="color:#f92672">=</span> <span style="color:#ae81ff">30</span>
+      origin_ssl_protocols <span style="color:#f92672">=</span> [
+        <span style="color:#e6db74">&#34;TLSv1&#34;</span>,
+        <span style="color:#e6db74">&#34;TLSv1.1&#34;</span>,
+        <span style="color:#e6db74">&#34;TLSv1.2&#34;</span>,
+      ]
+    }
+  }
+
+  enabled             <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+  is_ipv6_enabled     <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+  comment             <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;${var.domain} distribution&#34;</span>
+  default_root_object <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;index.html&#34;</span>
+
+  aliases <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;${var.domain}&#34;, &#34;www.${var.domain}&#34;</span>]
+
+  <span style="color:#66d9ef">default_cache_behavior</span> {
+    allowed_methods  <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;GET&#34;, &#34;HEAD&#34;</span>]
+    cached_methods   <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;GET&#34;, &#34;HEAD&#34;</span>]
+    compress         <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+    target_origin_id <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;S3Origin-${var.domain}&#34;</span>
+
+    <span style="color:#66d9ef">forwarded_values</span> {
+      query_string <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span>
+
+      <span style="color:#66d9ef">cookies</span> {
+        forward <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;none&#34;</span>
+      }
+    }
+
+    viewer_protocol_policy <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;redirect-to-https&#34;</span>
+    min_ttl                <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>
+    default_ttl            <span style="color:#f92672">=</span> <span style="color:#ae81ff">3600</span>
+    max_ttl                <span style="color:#f92672">=</span> <span style="color:#ae81ff">86400</span>
+  }
+
+  price_class <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;PriceClass_All&#34;</span>
+
+  <span style="color:#66d9ef">restrictions</span> {
+    <span style="color:#66d9ef">geo_restriction</span> {
+      restriction_type <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;none&#34;</span>
+    }
+  }
+
+  tags <span style="color:#f92672">=</span> {
+    Environment <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;production&#34;</span>
+  }
+
+  <span style="color:#66d9ef">viewer_certificate</span> {
+    acm_certificate_arn      <span style="color:#f92672">=</span> <span style="color:#66d9ef">aws_acm_certificate</span>.<span style="color:#66d9ef">cert</span>.<span style="color:#66d9ef">arn</span>
+    ssl_support_method       <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;sni-only&#34;</span>
+    minimum_protocol_version <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;TLSv1.1_2016&#34;</span>
+  }
+}
+
+<span style="color:#66d9ef">output</span> <span style="color:#e6db74">&#34;cloudfront_domain_name&#34;</span> {
+  value <span style="color:#f92672">=</span> <span style="color:#66d9ef">aws_cloudfront_distribution</span>.<span style="color:#66d9ef">s3_distribution</span>.<span style="color:#66d9ef">domain_name</span>
+}
+</code></pre></div><hr>
+<h2 id="conclusion">Conclusion</h2>
+<p>On initial investigation, it looks like you can do pretty rewrites with Lambda,
+however this seemed like overkill. At a glance currently, perhaps using the S3
+API endpoint for CloudFront may be the way to keep S3 buckets private and use
+Origin Access Identities.</p>
+]]></content></item><item><title>Adding CloudFront and ACM SSL</title><link>https://halme.org/posts/2019/11/adding-cloudfront-and-acm-ssl/</link><pubDate>Sun, 24 Nov 2019 00:00:00 +0000</pubDate><guid>https://halme.org/posts/2019/11/adding-cloudfront-and-acm-ssl/</guid><description>Overview To use SSL on my blog, I need to create an Amazon CloudFront web distribution along with adding a SSL certificate with AWS Certificate Manager (ACM).
+ACM (AWS Certificate Manager) Create an Amazon ACM certificate and validate with the appropriate DNS records that are output. As CloudFront requires the certificate to be in us-east-1, we need to ensure the certificate is created in that region.
+resource &amp;#34;aws_acm_certificate&amp;#34; &amp;#34;cert&amp;#34; { provider = aws.</description><content type="html"><![CDATA[<h1 id="overview">Overview</h1>
+<p>To use SSL on my blog, I need to create an
+<a href="https://aws.amazon.com/cloudfront/">Amazon CloudFront</a> web distribution along
+with adding a SSL certificate with
+<a href="https://aws.amazon.com/certificate-manager/">AWS Certificate Manager (ACM)</a>.</p>
+<hr>
+<h2 id="acm-aws-certificate-manager">ACM (AWS Certificate Manager)</h2>
+<p>Create an Amazon ACM certificate and validate with the appropriate DNS records
+that are output. As CloudFront requires the certificate to be in us-east-1, we
+need to ensure the certificate is created in that region.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl"><span style="color:#66d9ef">resource</span> <span style="color:#e6db74">&#34;aws_acm_certificate&#34; &#34;cert&#34;</span> {
+  provider                  <span style="color:#f92672">=</span> <span style="color:#66d9ef">aws</span>.<span style="color:#66d9ef">east</span>
+  domain_name               <span style="color:#f92672">=</span> <span style="color:#66d9ef">var</span>.<span style="color:#66d9ef">domain</span>
+  validation_method         <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;DNS&#34;</span>
+  subject_alternative_names <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;www.${var.domain}&#34;</span>]
+
+  tags <span style="color:#f92672">=</span> {
+    Name        <span style="color:#f92672">=</span> <span style="color:#66d9ef">var</span>.<span style="color:#66d9ef">domain</span>
+    Environment <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;production&#34;</span>
+  }
+
+  <span style="color:#66d9ef">lifecycle</span> {
+    create_before_destroy <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+  }
+}
+
+<span style="color:#66d9ef">output</span> <span style="color:#e6db74">&#34;domain_name&#34;</span> {
+  value <span style="color:#f92672">=</span> <span style="color:#66d9ef">aws_acm_certificate</span>.<span style="color:#66d9ef">cert</span>.<span style="color:#66d9ef">domain_name</span>
+}
+
+<span style="color:#66d9ef">output</span> <span style="color:#e6db74">&#34;domain_validation_options&#34;</span> {
+  value <span style="color:#f92672">=</span> <span style="color:#66d9ef">aws_acm_certificate</span>.<span style="color:#66d9ef">cert</span>.<span style="color:#66d9ef">domain_validation_options</span>
+}
+</code></pre></div><p>Query the status through the console or CLI</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">➜ aws acm describe-certificate
+--certificate-arn arn:aws:acm:ap-southeast-2:1234567890:certificate/abcd1234-1234-1234-1234-123456abcdef
+--query <span style="color:#e6db74">&#39;Certificate.DomainValidationOptions[*].{name:DomainName,status:ValidationStatus}&#39;</span>
+--output table
+-----------------------------------------
+|          DescribeCertificate          |
++----------------+----------------------+
+|      name      |       status         |
++----------------+----------------------+
+|  halme.org     |  SUCCESS             |
+|  www.halme.org |  PENDING_VALIDATION  |
++----------------+----------------------+
+</code></pre></div><hr>
+<h2 id="s3">S3</h2>
+<p>We previously had our S3 bucket configured to host a static website directly,
+so we&rsquo;ll need to update our configuration to make it private, allowing
+CloudFront access only.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl"><span style="color:#66d9ef">resource</span> <span style="color:#e6db74">&#34;aws_s3_bucket&#34; &#34;web&#34;</span> {
+  bucket <span style="color:#f92672">=</span> <span style="color:#66d9ef">var</span>.<span style="color:#66d9ef">domain</span>
+}
+
+<span style="color:#66d9ef">data</span> <span style="color:#e6db74">&#34;aws_iam_policy_document&#34; &#34;s3_policy&#34;</span> {
+  <span style="color:#66d9ef">statement</span> {
+    actions   <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;s3:GetObject&#34;</span>]
+    resources <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;${aws_s3_bucket.web.arn}/*&#34;</span>]
+
+    <span style="color:#66d9ef">principals</span> {
+      type        <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;AWS&#34;</span>
+      identifiers <span style="color:#f92672">=</span> [<span style="color:#66d9ef">aws_cloudfront_origin_access_identity</span>.<span style="color:#66d9ef">origin_access_identity</span>.<span style="color:#66d9ef">iam_arn</span>]
+    }
+  }
+
+  <span style="color:#66d9ef">statement</span> {
+    actions   <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;s3:ListBucket&#34;</span>]
+    resources <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;${aws_s3_bucket.web.arn}&#34;</span>]
+
+    <span style="color:#66d9ef">principals</span> {
+      type        <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;AWS&#34;</span>
+      identifiers <span style="color:#f92672">=</span> [<span style="color:#66d9ef">aws_cloudfront_origin_access_identity</span>.<span style="color:#66d9ef">origin_access_identity</span>.<span style="color:#66d9ef">iam_arn</span>]
+    }
+  }
+}
+
+<span style="color:#66d9ef">resource</span> <span style="color:#e6db74">&#34;aws_s3_bucket_policy&#34; &#34;web&#34;</span> {
+  bucket <span style="color:#f92672">=</span> <span style="color:#66d9ef">aws_s3_bucket</span>.<span style="color:#66d9ef">web</span>.<span style="color:#66d9ef">id</span>
+  policy <span style="color:#f92672">=</span> <span style="color:#66d9ef">data</span>.<span style="color:#66d9ef">aws_iam_policy_document</span>.<span style="color:#66d9ef">s3_policy</span>.<span style="color:#66d9ef">json</span>
+}
+</code></pre></div><hr>
+<h2 id="cloudfront">CloudFront</h2>
+<p>We need to create an <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html">Origin Access Identity</a></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl"><span style="color:#66d9ef">resource</span> <span style="color:#e6db74">&#34;aws_cloudfront_origin_access_identity&#34; &#34;origin_access_identity&#34;</span> {
+  comment <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;${var.domain} cloudfront&#34;</span>
+}
+</code></pre></div><p>We will then create a CloudFront distribution</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl"><span style="color:#66d9ef">locals</span> {
+  s3_origin_id <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;myS3Origin&#34;</span>
+}
+
+<span style="color:#66d9ef">resource</span> <span style="color:#e6db74">&#34;aws_cloudfront_distribution&#34; &#34;s3_distribution&#34;</span> {
+  <span style="color:#66d9ef">origin</span> {
+    domain_name <span style="color:#f92672">=</span> <span style="color:#66d9ef">aws_s3_bucket</span>.<span style="color:#66d9ef">web</span>.<span style="color:#66d9ef">bucket_regional_domain_name</span>
+    origin_id   <span style="color:#f92672">=</span> <span style="color:#66d9ef">local</span>.<span style="color:#66d9ef">s3_origin_id</span>
+
+    <span style="color:#66d9ef">s3_origin_config</span> {
+      origin_access_identity <span style="color:#f92672">=</span> <span style="color:#66d9ef">aws_cloudfront_origin_access_identity</span>.<span style="color:#66d9ef">origin_access_identity</span>.<span style="color:#66d9ef">cloudfront_access_identity_path</span>
+    }
+  }
+
+  enabled             <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+  is_ipv6_enabled     <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+  comment             <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;${var.domain} distribution&#34;</span>
+  default_root_object <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;index.html&#34;</span>
+
+  aliases <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;${var.domain}&#34;</span>]
+
+  <span style="color:#66d9ef">default_cache_behavior</span> {
+    allowed_methods  <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;DELETE&#34;, &#34;GET&#34;, &#34;HEAD&#34;, &#34;OPTIONS&#34;, &#34;PATCH&#34;, &#34;POST&#34;, &#34;PUT&#34;</span>]
+    cached_methods   <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;GET&#34;, &#34;HEAD&#34;</span>]
+    target_origin_id <span style="color:#f92672">=</span> <span style="color:#66d9ef">local</span>.<span style="color:#66d9ef">s3_origin_id</span>
+
+    <span style="color:#66d9ef">forwarded_values</span> {
+      query_string <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span>
+
+      <span style="color:#66d9ef">cookies</span> {
+        forward <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;none&#34;</span>
+      }
+    }
+
+    viewer_protocol_policy <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;redirect-to-https&#34;</span>
+    min_ttl                <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>
+    default_ttl            <span style="color:#f92672">=</span> <span style="color:#ae81ff">3600</span>
+    max_ttl                <span style="color:#f92672">=</span> <span style="color:#ae81ff">86400</span>
+  }
+
+  price_class <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;PriceClass_200&#34;</span>
+
+  <span style="color:#66d9ef">restrictions</span> {
+    <span style="color:#66d9ef">geo_restriction</span> {
+      restriction_type <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;whitelist&#34;</span>
+      locations        <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;AU&#34;, &#34;NZ&#34;, &#34;US&#34;</span>]
+    }
+  }
+
+  tags <span style="color:#f92672">=</span> {
+    Environment <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;production&#34;</span>
+  }
+
+  <span style="color:#66d9ef">viewer_certificate</span> {
+    acm_certificate_arn <span style="color:#f92672">=</span> <span style="color:#66d9ef">aws_acm_certificate</span>.<span style="color:#66d9ef">cert</span>.<span style="color:#66d9ef">arn</span>
+    ssl_support_method  <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;sni-only&#34;</span>
+  }
+}
+
+<span style="color:#66d9ef">output</span> <span style="color:#e6db74">&#34;cloudfront_domain_name&#34;</span> {
+  value <span style="color:#f92672">=</span> <span style="color:#66d9ef">aws_cloudfront_distribution</span>.<span style="color:#66d9ef">s3_distribution</span>.<span style="color:#66d9ef">domain_name</span>
+}
+</code></pre></div><p>Run the terraform plan and it should output you a CloudFront domain (eventually)</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">aws_cloudfront_distribution.s3_distribution: Still modifying... <span style="color:#f92672">[</span>id<span style="color:#f92672">=</span>ABCDEFGHIJKLM, 24m0s elapsed<span style="color:#f92672">]</span>
+aws_cloudfront_distribution.s3_distribution: Still modifying... <span style="color:#f92672">[</span>id<span style="color:#f92672">=</span>ABCDEFGHIJKLM, 24m10s elapsed<span style="color:#f92672">]</span>
+aws_cloudfront_distribution.s3_distribution: Still modifying... <span style="color:#f92672">[</span>id<span style="color:#f92672">=</span>ABCDEFGHIJKLM, 24m20s elapsed<span style="color:#f92672">]</span>
+aws_cloudfront_distribution.s3_distribution: Still modifying... <span style="color:#f92672">[</span>id<span style="color:#f92672">=</span>ABCDEFGHIJKLM, 24m30s elapsed<span style="color:#f92672">]</span>
+aws_cloudfront_distribution.s3_distribution: Modifications complete after 24m38s <span style="color:#f92672">[</span>id<span style="color:#f92672">=</span>ABCDEFGHIJKLM<span style="color:#f92672">]</span>
+
+Apply complete! Resources: <span style="color:#ae81ff">1</span> added, <span style="color:#ae81ff">0</span> changed, <span style="color:#ae81ff">0</span> destroyed.
+
+Outputs:
+
+cloudfront_domain_name <span style="color:#f92672">=</span> example.cloudfront.net
+</code></pre></div><hr>
+<h2 id="conclusion">Conclusion</h2>
+<p>Browse to the cloudfront URL and you should have your static website.
+It&rsquo;s then a matter of updating your DNS to point to URL.</p>
+<p>Next article will look at streamlining and documenting the pipeline for pushing
+updates/articles.</p>
+]]></content></item><item><title>A Serverless Blog with Hugo</title><link>https://halme.org/posts/2019/11/a-serverless-blog-with-hugo/</link><pubDate>Sat, 23 Nov 2019 00:00:00 +0000</pubDate><guid>https://halme.org/posts/2019/11/a-serverless-blog-with-hugo/</guid><description>Overview On a whim I decided to add a blog to my static website, which consisted simply of links to my socials (linkedin/github/email). I thought this would be a good opportunity to dip my toes into serverless, which through various articles led me to Hugo. It also gives me a good excuse to practice my writing in Markdown.
+I&amp;rsquo;ll be using Terraform for most of the AWS configuration, avoiding the console as much as possible.</description><content type="html"><![CDATA[<h1 id="overview">Overview</h1>
+<p>On a whim I decided to add a blog to my static website, which consisted simply
+of links to my socials (linkedin/github/email). I thought this would be a good
+opportunity to dip my toes into serverless, which through various articles led
+me to <strong>Hugo</strong>. It also gives me a good excuse to practice my writing in
+<strong>Markdown</strong>.</p>
+<p>I&rsquo;ll be using Terraform for most of the AWS configuration, avoiding the console
+as much as possible. As mentioned the website will be created with Hugo, and
+there will be a small amount of <code>aws cli</code> to query AWS related bits.</p>
+<hr>
+<h2 id="hugo">Hugo</h2>
+<p>Following the <strong>Hugo</strong> quick start guide located <a href="https://gohugo.io/getting-started/quick-start/">here</a>,
+I followed these steps to get a basic site up and running.</p>
+<ol>
+<li>Install Hugo with homebrew</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">brew install hugo
+</code></pre></div><ol>
+<li>Create a new site with Hugo</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">hugo new site halme
+</code></pre></div><ol>
+<li>Create a git repo for our site</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">git init
+</code></pre></div><ol>
+<li>Find a nice theme at <a href="https://themes.gohugo.io/">themes.gohugo.io</a> and add it as a submodule</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">git submodule add https://github.com/rhazdon/hugo-theme-hello-friend-ng.git themes/hello-friend-ng
+</code></pre></div><ol>
+<li>Update the Hugo <code>config.toml</code> file with the appropriate theme config</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">baseURL <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;/&#34;</span>
+title   <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;Josiah Halme&#34;</span>
+theme   <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;hello-friend-ng&#34;</span>
+</code></pre></div><ol>
+<li>Create a new post</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">hugo new posts/first-post.md
+</code></pre></div><ol>
+<li>Start a local Hugo server to test, browse to <code>http://localhost:1313/</code></li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">➜  hugo server -t hello-friend-ng
+                   | EN
++------------------+----+
+  Pages            | <span style="color:#ae81ff">12</span>
+  Paginator pages  |  <span style="color:#ae81ff">0</span>
+  Non-page files   |  <span style="color:#ae81ff">0</span>
+  Static files     | <span style="color:#ae81ff">12</span>
+  Processed images |  <span style="color:#ae81ff">0</span>
+  Aliases          |  <span style="color:#ae81ff">4</span>
+  Sitemaps         |  <span style="color:#ae81ff">1</span>
+  Cleaned          |  <span style="color:#ae81ff">0</span>
+
+Total in <span style="color:#ae81ff">35</span> ms
+Watching <span style="color:#66d9ef">for</span> changes in   /Users/josiah/hugo/halme/<span style="color:#f92672">{</span>archetypes,content,data,layouts,static,themes<span style="color:#f92672">}</span>
+Watching <span style="color:#66d9ef">for</span> config changes in /Users/josiah/hugo/halme/config.toml
+Environment: <span style="color:#e6db74">&#34;development&#34;</span>
+Serving pages from memory
+Running in Fast Render Mode. For full rebuilds on change: hugo server --  disableFastRender
+Web Server is available at //localhost:1313/ <span style="color:#f92672">(</span>bind address 127.0.0.1<span style="color:#f92672">)</span>
+Press Ctrl+C to stop
+</code></pre></div><ol>
+<li>Create the static website by running <code>hugo</code> which will then deploy to the <code>public</code> directory</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">➜ hugo
+
+                   | EN
++------------------+----+
+  Pages            | <span style="color:#ae81ff">12</span>
+  Paginator pages  |  <span style="color:#ae81ff">0</span>
+  Non-page files   |  <span style="color:#ae81ff">0</span>
+  Static files     | <span style="color:#ae81ff">12</span>
+  Processed images |  <span style="color:#ae81ff">0</span>
+  Aliases          |  <span style="color:#ae81ff">4</span>
+  Sitemaps         |  <span style="color:#ae81ff">1</span>
+  Cleaned          |  <span style="color:#ae81ff">0</span>
+
+Total in <span style="color:#ae81ff">38</span> ms
+</code></pre></div><ol>
+<li>Add a Hugo deployment target in <code>config.toml</code> (S3 bucket in our case)</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="color:#f92672">[</span>deployment<span style="color:#f92672">]</span>
+order <span style="color:#f92672">=</span> <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;.jpg</span>$<span style="color:#e6db74">&#34;</span>, <span style="color:#e6db74">&#34;.gif</span>$<span style="color:#e6db74">&#34;</span><span style="color:#f92672">]</span>
+
+<span style="color:#f92672">[[</span>deployment.targets<span style="color:#f92672">]]</span>
+<span style="color:#75715e"># An arbitrary name for this target.</span>
+name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;mydeployment&#34;</span>
+
+<span style="color:#75715e"># S3; see https://gocloud.dev/howto/blob/#s3</span>
+<span style="color:#75715e"># For S3-compatible endpoints, see https://gocloud.dev/howto/blob/#s3-compatible</span>
+URL <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;s3://mybucketname?region=ap-southeast-2&#34;</span>
+
+<span style="color:#f92672">[[</span>deployment.matchers<span style="color:#f92672">]]</span>
+<span style="color:#75715e">#  Cache static assets for 20 years.</span>
+pattern <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;^.+\\.(js|css|svg|ttf)</span>$<span style="color:#e6db74">&#34;</span>
+cacheControl <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;max-age=630720000, no-transform, public&#34;</span>
+gzip <span style="color:#f92672">=</span> true
+
+<span style="color:#f92672">[[</span>deployment.matchers<span style="color:#f92672">]]</span>
+pattern <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;^.+\\.(png|jpg)</span>$<span style="color:#e6db74">&#34;</span>
+cacheControl <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;max-age=630720000, no-transform, public&#34;</span>
+gzip <span style="color:#f92672">=</span> false
+
+<span style="color:#f92672">[[</span>deployment.matchers<span style="color:#f92672">]]</span>
+pattern <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;^.+\\.(html|xml|json)</span>$<span style="color:#e6db74">&#34;</span>
+gzip <span style="color:#f92672">=</span> true
+</code></pre></div><ol>
+<li>Deploy to our S3 Bucket, in this case we&rsquo;ve added our AWS IAM credentials (access_id and access_key) to <code>~/.aws/credentials</code></li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">➜ hugo deploy
+Deploying to target <span style="color:#e6db74">&#34;mydeployment&#34;</span> <span style="color:#f92672">(</span>s3://mybucketname?region<span style="color:#f92672">=</span>ap-southeast-2<span style="color:#f92672">)</span>
+Identified <span style="color:#ae81ff">53</span> file<span style="color:#f92672">(</span>s<span style="color:#f92672">)</span> to upload, totaling 1.6 MB, and <span style="color:#ae81ff">0</span> file<span style="color:#f92672">(</span>s<span style="color:#f92672">)</span> to delete.
+Success!
+</code></pre></div><ol>
+<li>We have now deployed to our S3 bucket. By default this means nothing, and we have nothing to point our DNS to yet.</li>
+</ol>
+<hr>
+<h2 id="terraform">Terraform</h2>
+<p>For the purpose of this blog, I&rsquo;ll just be starting off with static website hosting in S3 as outlined <a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/WebsiteHosting.html">here</a>.
+I&rsquo;ll be managing it with Terraform as I intend on using CloudFront at a later point.</p>
+<p>Bootstrap a simple Terraform repo</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">terraform-web-halme
+├── aws.tf
+├── policy.json
+├── s3.tf
+├── state.tf
+├── terraform.tfvars
+└── variables.tf
+</code></pre></div><p>aws.tf</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl"><span style="color:#75715e"># Define AWS terraform provider, along with required region,
+</span><span style="color:#75715e"># account_id and provider version
+</span><span style="color:#75715e"></span>
+<span style="color:#66d9ef">provider</span> <span style="color:#e6db74">&#34;aws&#34;</span> {
+  region              <span style="color:#f92672">=</span> <span style="color:#66d9ef">var</span>.<span style="color:#66d9ef">region</span>
+  allowed_account_ids <span style="color:#f92672">=</span> [<span style="color:#66d9ef">var</span>.<span style="color:#66d9ef">account_id</span>]
+  version             <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;~&gt; 2.0&#34;</span>
+}
+</code></pre></div><p>policy.json</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl">{
+    <span style="color:#e6db74">&#34;Version&#34;: &#34;2012-10-17&#34;</span>,
+    <span style="color:#e6db74">&#34;Statement&#34;</span><span style="color:#960050;background-color:#1e0010">:</span> [
+        {
+            <span style="color:#e6db74">&#34;Sid&#34;: &#34;PublicReadGetObject&#34;</span>,
+            <span style="color:#e6db74">&#34;Effect&#34;: &#34;Allow&#34;</span>,
+            <span style="color:#e6db74">&#34;Principal&#34;: &#34;*&#34;</span>,
+            <span style="color:#e6db74">&#34;Action&#34;: &#34;s3:GetObject&#34;</span>,
+            <span style="color:#e6db74">&#34;Resource&#34;: &#34;arn:aws:s3:::mybucketname/*&#34;</span>
+        }
+    ]
+}
+</code></pre></div><p>s3.tf</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl"><span style="color:#66d9ef">resource</span> <span style="color:#e6db74">&#34;aws_s3_bucket&#34; &#34;web&#34;</span> {
+  bucket <span style="color:#f92672">=</span> <span style="color:#66d9ef">var</span>.<span style="color:#66d9ef">domain</span>
+  acl    <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;public-read&#34;</span>
+  policy <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;${file(&#34;policy.json&#34;)}&#34;</span>
+
+  <span style="color:#66d9ef">website</span> {
+    index_document <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;index.html&#34;</span>
+    error_document <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;error.html&#34;</span>
+  }
+}
+</code></pre></div><p>state.tf</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl"><span style="color:#66d9ef">resource</span> <span style="color:#e6db74">&#34;aws_s3_bucket&#34; &#34;terraform_state&#34;</span> {
+  bucket        <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;web-${var.name}-terraform&#34;</span>
+  force_destroy <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+
+  <span style="color:#66d9ef">versioning</span> {
+    enabled <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+  }
+}
+
+<span style="color:#66d9ef">resource</span> <span style="color:#e6db74">&#34;aws_dynamodb_table&#34; &#34;terraform_statelock&#34;</span> {
+  name           <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;web-${var.name}-terraform-lock&#34;</span>
+  read_capacity  <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>
+  write_capacity <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>
+  hash_key       <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;LockID&#34;</span>
+
+  <span style="color:#66d9ef">attribute</span> {
+    name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;LockID&#34;</span>
+    type <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;S&#34;</span>
+  }
+}
+
+<span style="color:#66d9ef">terraform</span> {
+  required_version <span style="color:#f92672">=</span> &#34;&gt;<span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>.<span style="color:#ae81ff">12</span>.<span style="color:#ae81ff">0</span><span style="color:#960050;background-color:#1e0010">&#34;</span>
+
+  <span style="color:#66d9ef">backend</span> <span style="color:#e6db74">&#34;s3&#34;</span> {
+    bucket         <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;web-example-terraform&#34;</span>
+    key            <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;terraform&#34;</span>
+    region         <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;ap-southeast-2&#34;</span>
+    encrypt        <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;true&#34;</span>
+    dynamodb_table <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;web-example-terraform-lock&#34;</span>
+  }
+}
+</code></pre></div><p>terraform.tfvars</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl">account_id <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;1234567890&#34;</span>
+domain     <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;example.tld&#34;</span>
+name       <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;example&#34;</span>
+</code></pre></div><p>variables.tf</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-hcl" data-lang="hcl"><span style="color:#66d9ef">variable</span> <span style="color:#e6db74">&#34;account_id&#34;</span> {
+}
+
+<span style="color:#66d9ef">variable</span> <span style="color:#e6db74">&#34;region&#34;</span> {
+  default <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;ap-southeast-2&#34;</span>
+}
+
+<span style="color:#66d9ef">variable</span> <span style="color:#e6db74">&#34;domain&#34;</span> {
+}
+
+<span style="color:#66d9ef">variable</span> <span style="color:#e6db74">&#34;name&#34;</span> {
+}
+</code></pre></div><p>Run a terraform <code>plan</code> and <code>apply</code> to create the AWS infrastructure.</p>
+<hr>
+<h2 id="conclusion">Conclusion</h2>
+<p>We can now navigate and view the static site by visiting the S3 bucket URL, for example</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell">http://mybucketname.s3-website-ap-southeast-2.amazonaws.com/index.html
+</code></pre></div><p>Next part will include CloudFront and ACM for SSL..</p>
+]]></content></item></channel></rss>
