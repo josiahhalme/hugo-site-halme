@@ -1,9 +1,9 @@
-name: github pages
+name: hugo deploy
 
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
 
 jobs:
@@ -21,7 +21,6 @@ jobs:
           hugo-version: 'latest'
           extended: true
 
-
       - name: Build
         run: hugo --minify
 
@@ -31,3 +30,13 @@ jobs:
         with:
           github_token: ${{ secrets.TOKEN }}
           publish_dir: ./public
+
+      # - name: Configure AWS Credentials
+      #   uses: aws-actions/configure-aws-credentials@v1
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ap-southeast-2
+
+      # - name: Deploy static site to S3 bucket
+      #   run: aws s3 sync ./public/ s3://BUCKET_NAME --delete
